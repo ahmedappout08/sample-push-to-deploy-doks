@@ -19,50 +19,46 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 jobs:
   # This workflow contains a single job called "build".
-  build:
-    # The type of runner that the job will run on.
+    push:
+    # Ensure test job passes before pushing image.
+    needs: test
+
     runs-on: ubuntu-latest
-    
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    if: github.event_name == 'push'
+
     steps:
+      - uses: actions/checkout@v2
 
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it.
-    - name: Checkout master
-      uses: actions/checkout@main
+      - name: Build image
+        run: docker build . --file Dockerfile --tag $IMAGE_NAME
 
-    # Install doctl.
-    - name: Install doctl
-      uses: digitalocean/action-doctl@v2
-      with:
-        token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
-    
-    # Build a Docker image of your application in your registry and tag the image with the $GITHUB_SHA.
-    - name: Build container image
-      run: docker build -t registry.digitalocean.com/sdas/python-example:$(echo $GITHUB_SHA | head -c7) .
+      - name: Log into registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
 
-    - name: Log in to DigitalOcean Container Registry with short-lived credentials
-      run: doctl registry login --expiry-seconds 1200
-
-    - name: Push image to DigitalOcean Container Registry
-      run: docker push registry.digitalocean.com/sdas/python-example:$(echo $GITHUB_SHA | head -c7)
+      - name: Push image
+        run: |
+          IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
+          # Change all uppercase to lowercase
+          IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+          # Strip git ref prefix from version
+          VERSION=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          # Strip "v" prefix from tag name
+          [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
+          # Use Docker `latest` tag convention
+          [ "$VERSION" == "master" ] && VERSION=latest
+          echo IMAGE_ID=$IMAGE_ID
+          echo VERSION=$(echo $GITHUB_SHA | head -c7)
+          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+          docker push $IMAGE_ID:$VERSION
+ 
 
     # Deploy to DigitalOCcean Kubernetes.
-    - name: Update deployment file
-      run: TAG=$(echo $GITHUB_SHA | head -c7) && sed -i 's|<IMAGE>|registry.digitalocean.com/sdas/python-example:'${TAG}'|' $GITHUB_WORKSPACE/config/deployment.yml
+      - name: Update deployment file
+        run: TAG=$(echo $GITHUB_SHA | head -c7) && sed -i 's|<IMAGE>|docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME:'${TAG}'|' $GITHUB_WORKSPACE/config/deployment.yml
 
-    - name: Save DigitalOcean kubeconfig with short-lived credentials
-      run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 mycluster
-    
-    # If you haven't already integrated with your registry and only want workloads in a particular namespace to be able to pull 
-    # from your registry, uncomment the next two commands.
-    #- name: Upload credentials of your registry to your DigitalOcean Kubernetes cluster
-    #  run: doctl registry kubernetes-manifest | kubectl apply -f -
-      
-    #- name: Reference the secret you just uploaded as an imagePullSecrets
-    #  run: "kubectl patch serviceaccount default -p '{\"imagePullSecrets\": [{\"name\": \"registry-sdas\"}]}'"
 
-    - name: Deploy to DigitalOcean Kubernetes
-      run: kubectl apply -f $GITHUB_WORKSPACE/config/deployment.yml
+      - name: Deploy to DigitalOcean Kubernetes
+        run: kubectl apply -f $GITHUB_WORKSPACE/config/deployment.yml
 
-    - name: Verify deployment
-      run: kubectl rollout status deployment/python-example
+      - name: Verify deployment
+        run: kubectl rollout status deployment/python-example
