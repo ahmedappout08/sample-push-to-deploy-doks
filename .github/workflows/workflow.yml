@@ -19,7 +19,7 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel.
 env:
   # TODO: Change variable to your image's name.
-  IMAGE_NAME: ${GITHUB_REF##*/}
+  IMAGE_NAME: Test
 jobs:
   # This workflow contains a single job called "build".
   build:
@@ -35,10 +35,9 @@ jobs:
     # Build a Docker image of your application in your registry and tag the image with the $GITHUB_SHA.
     - name: Branch name
       run: echo running on branch ${GITHUB_REF##*/}
-    - name: Build container image
-      run:  docker build . --file Dockerfile --tag $IMAGE_NAME
     - name: Log into registry
       run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+
     - name: Push image
       run: |
           IMAGE_ID=docker.pkg.github.com/${{ github.repository }}/$IMAGE_NAME
@@ -49,11 +48,10 @@ jobs:
           # Strip "v" prefix from tag name
           [[ "${{ github.ref }}" == "refs/tags/"* ]] && VERSION=$(echo $VERSION | sed -e 's/^v//')
           # Use Docker `latest` tag convention
-          [ "$VERSION" == "master" ] && VERSION=latest
           echo IMAGE_ID=$IMAGE_ID
-          echo VERSION=$VERSION
-          docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-          docker push $IMAGE_ID:$VERSION
+          echo VERSION=${GITHUB_REF##*/}
+          docker tag $IMAGE_NAME $IMAGE_ID:$${GITHUB_REF##*/}
+          docker push $IMAGE_ID:$${GITHUB_REF##*/}
 
     # Deploy to  Kubernetes.
     - name: Update deployment file
