@@ -33,6 +33,7 @@ jobs:
 
       - name: Push image
         run: |
+          docker tag $(echo $GITHUB_SHA | head -c7) docker.pkg.github.com/${{ github.repository }}/$(echo $GITHUB_SHA | head -c7):$(echo $GITHUB_SHA | head -c7)
           docker push docker.pkg.github.com/ahmedappout08/python-example:$(echo $GITHUB_SHA | head -c7)
  
 
