@@ -40,8 +40,8 @@ jobs:
       run: docker push docker.pkg.github.com/ahmedappout08/python-example:$(echo $GITHUB_SHA | head -c7)
 
     # Deploy to  Kubernetes.
-      - name: Update deployment file
-        run: TAG=$(echo $GITHUB_SHA | head -c7) && sed -i 's|<IMAGE>|docker.pkg.github.com/ahmedappout08/python-example/demo:'${TAG}'|' $GITHUB_WORKSPACE/config/deployment.yml
+    - name: Update deployment file
+      run: TAG=$(echo $GITHUB_SHA | head -c7) && sed -i 's|<IMAGE>|docker.pkg.github.com/ahmedappout08/python-example/demo:'${TAG}'|' $GITHUB_WORKSPACE/config/deployment.yml
 
 
 
