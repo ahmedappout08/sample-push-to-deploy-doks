@@ -23,18 +23,21 @@ jobs:
     # The type of runner that the job will run on.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+    - name: Checkout master
+      uses: actions/checkout@main
 
-      - name: Build image
-        run: docker build -t docker.pkg.github.com/ahmedappout08/python-example:$(echo $GITHUB_SHA | head -c7) .
+    # Install doctl.
 
-      - name: Log into registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+    
+    # Build a Docker image of your application in your registry and tag the image with the $GITHUB_SHA.
+    - name: Build container image
+      run: docker build -t docker.pkg.github.com/ahmedappout08/python-example:$(echo $GITHUB_SHA | head -c7) .
 
-      - name: Push image
-        run: |
-          docker push docker.pkg.github.com/ahmedappout08/python-example/demo:$(echo $GITHUB_SHA | head -c7)
- 
+    - name: Log into registry
+      run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+
+    - name: Push image to DigitalOcean Container Registry
+      run: docker push docker.pkg.github.com/ahmedappout08/python-example:$(echo $GITHUB_SHA | head -c7)
 
     # Deploy to  Kubernetes.
       - name: Update deployment file
